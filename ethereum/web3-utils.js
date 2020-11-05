@@ -1,7 +1,7 @@
 const web3utils = require('web3-utils')
 
 // Every byte consists of two hex values hence 32 * 2 = 64. And 0x + 64 = 66 values
-exports.toBytes32 = (text, totalLength) => {
+const toBytes32 = (text, totalLength) => {
   const hexText = web3utils.toHex(text)
   const paddingSize = totalLength - hexText.length
 
@@ -10,7 +10,7 @@ exports.toBytes32 = (text, totalLength) => {
   return hexText + Array(paddingSize).fill(0).join('')
 }
 
-exports.timestampToHour = timestamp => {
+const timestampToHour = timestamp => {
   // Create a new JavaScript Date object based on the timestamp
   const date = new Date(timestamp * 1000)
   // Hours part from the timestamp
@@ -27,6 +27,6 @@ exports.timestampToHour = timestamp => {
   return formattedTime
 }
 
-exports.timestampToDate = timestamp => new Date(timestamp * 1000)
+const timestampToDate = timestamp => new Date(timestamp * 1000)
 
-module.exports = { ...web3utils }
+module.exports = { ...web3utils, toBytes32, timestampToHour, timestampToDate }
