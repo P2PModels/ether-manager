@@ -5,7 +5,7 @@ const { timestampToDate, timestampToHour } = require('../../web3-utils')
 const { hexToAscii } = web3.utils
 const logger = require('../../../winston')
 
-const { rrContract } = require('./round-robin')
+const { rrContract, callContractMethod } = require('./round-robin')
 
 const USER_REGISTERED = 'UserRegistered'
 const USER_DELETED = 'UserDeleted'
@@ -92,15 +92,14 @@ function createReallocationCronJob(taskId, timestamp) {
 
   return new CronJob(executionDate, function () {
     logger.info(`Executing job with task id: ${hexToAscii(taskId)} on ${executionDate}`)
-    rrContract.methods
-      .reallocateTask(taskId)
-      .send()
-      .then(
-        () => {},
-        err => {
-          logger.error(`Error trying to reallocate task ${taskId} - ${err}`)
-        }
-      )
+    callContractMethod('reallocateTask', [taskId]).then(
+      () => {
+        logger.info(`Job ${hexToAscii(taskId)} executed.`)
+      },
+      err => {
+        logger.error(`Error trying to reallocate task ${taskId} - ${err}`)
+      }
+    )
   })
 }
 
