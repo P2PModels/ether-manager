@@ -28,3 +28,5 @@ exports.timestampToHour = timestamp => {
 }
 
 exports.timestampToDate = timestamp => new Date(timestamp * 1000)
+
+module.exports = { ...web3utils }
