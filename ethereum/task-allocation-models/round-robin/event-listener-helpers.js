@@ -18,30 +18,54 @@ const TASK_DELETED = 'TaskDeleted'
 const cronJobs = new Map()
 
 
-function userRegisteredHandler(err, { returnValues: { userId } }) {
-  if (err) logger.error(`Error when receiving ${USER_REGISTERED} event - ${err}`)
-  else {
+function userRegisteredHandler(err, event = {}) {
+  const { userId } = event.returnValues || {}
+
+  if (err) {
+    logger.error(`Error when receiving ${USER_REGISTERED} event - ${err}`)
+  }
+  else if (userId) {
     logger.info(`${USER_REGISTERED} event - User ${hexToAscii(userId)} created`)
   }
+  else {
+    logger.info(`${USER_REGISTERED} event - No params received`)
+  }
 }
 
-function userDeletedHandler(err, { returnValues: { userId } }) {
-  if (err) logger.error(`Error when receiving ${USER_DELETED} event - ${err}`)
-  else {
+function userDeletedHandler(err, event = {}) {
+  const { userId } = event.returnValues || {}
+
+  if (err) {
+    logger.error(`Error when receiving ${USER_DELETED} event - ${err}`)
+  }
+  else if (userId){
     logger.info(`${USER_DELETED} event - User ${hexToAscii(userId)} deleted`)
   }
-}
-
-function taskCreatedHandler(err, { returnValues: { taskId } }) {
-  if (err) logger.error(`Error when receiving ${TASK_CREATED} event - ${err}`)
   else {
-    logger.info(`${TASK_CREATED} event - Task ${hexToAscii(taskId)} created`)
+    logger.info(`${USER_DELETED} event - No params received`)
   }
 }
 
-async function taskAllocatedHandler(err, { returnValues: { taskId, userId } }) {
-  if (err) logger.error(`Error when receiving ${TASK_ALLOCATED} event - ${err}`)
+function taskCreatedHandler(err, event = {}) {
+  const { taskId } = event.returnValues || {}
+
+  if (err) {
+    logger.error(`Error when receiving ${TASK_CREATED} event - ${err}`)
+  }
+  else if (taskId) {
+    logger.info(`${TASK_CREATED} event - Task ${hexToAscii(taskId)} created`)
+  }
   else {
+    logger.info(`${TASK_CREATED} event - No params received`)
+  }
+}
+
+async function taskAllocatedHandler(err, event = {}) {
+  const { taskId, userId } = event.returnValues || {}
+  if (err)  {
+    logger.error(`Error when receiving ${TASK_ALLOCATED} event - ${err}`)
+  }
+  else if (taskId && userId) {
     const { endDate } = await rrContract.methods.getTask(taskId).call()
 
     logger.info(
@@ -58,32 +82,55 @@ async function taskAllocatedHandler(err, { returnValues: { taskId, userId } }) {
     }
     cronJob.start()
   }
-}
-
-function taskRejectedHandler(err, { returnValues: { taskId, userId } }) {
-  if (err) logger.error(`Error when receiving ${TASK_REJECTED} event - ${err}`)
   else {
     logger.info(
-      `${TASK_REJECTED} event - Task ${hexToAscii(taskId)} rejected by ${hexToAscii(userId)}`
+      `${TASK_ALLOCATED} event - No params received`
     )
   }
 }
 
-function taskAcceptedHandler(err, event) {
-  const { taskId, userId } = event.returnValues
-  if (err) logger.error(`Error when receiving ${TASK_ACCEPTED} event - ${err}`)
+function taskRejectedHandler(err, event = {}) {
+  const { taskId, userId } = event.returnValues || {}
+  if (err) {
+    logger.error(`Error when receiving ${TASK_REJECTED} event - ${err}`)
+  }
+  else if (taskId && userId) {
+    logger.info(
+      `${TASK_REJECTED} event - Task ${hexToAscii(taskId)} rejected by ${hexToAscii(userId)}`
+    )
+  }
   else {
-    logger.info(`${TASK_ACCEPTED} event - Task ${hexToAscii(taskId)} accepted by user ${hexToAscii(userId)}`)
-    if (cronJobs.has(taskId)) cronJobs.get(taskId).stop()
+    logger.info(`${TASK_REJECTED} event - No params received`)
   }
 }
 
-function taskDeletedHandler(err, event) {
-  const { taskId } = event.returnValues
-  if (err) logger.error(`Error when receiving ${TASK_DELETED} event - ${err}`)
+function taskAcceptedHandler(err, event = {}) {
+  const { taskId, userId } = event.returnValues || {}
+  if (err) logger.error(`Error when receiving ${TASK_ACCEPTED} event - ${err}`)
+  else if (taskId, userId) {
+    logger.info(`${TASK_ACCEPTED} event - Task ${hexToAscii(taskId)} accepted by user ${hexToAscii(userId)}`)
+    if (cronJobs.has(taskId)) {
+      cronJobs.get(taskId).stop()
+    }
+  }
   else {
+    logger.info(`${TASK_ACCEPTED} event - No params received`)
+  }
+}
+
+function taskDeletedHandler(err, event = {}) {
+  const { taskId } = event.returnValues || {}
+  if (err)  {
+    logger.error(`Error when receiving ${TASK_DELETED} event - ${err}`)
+  }
+  else if (taskId) {
     logger.info(`${TASK_DELETED} event - Task ${hexToAscii(taskId)} deleted`)
-    if (cronJobs.has(taskId)) cronJobs.get(taskId).stop()
+    if (cronJobs.has(taskId)) {
+      cronJobs.get(taskId).stop()
+    }
+  }
+  else {
+    logger.info(`${TASK_DELETED} event - No params received`)
   }
 }
 
