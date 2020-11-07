@@ -9,15 +9,24 @@ const {
 
 const network = argv.network || 'local'
 
+const options = {
+  reconnect: {
+    auto: true,
+    delay: 1000,
+    maxAttempts: 5,
+    onTimeout: false
+  }
+}
+
 function setUpWeb3(network = 'local') {
   let web3
   if (network === 'rinkeby') {
-    web3 = new Web3(new Web3.providers.WebsocketProvider(RINKEBY_PROVIDER))
+    web3 = new Web3(new Web3.providers.WebsocketProvider(RINKEBY_PROVIDER), options)
     const addedAccount = web3.eth.accounts.wallet.add(RINKEBY_SERVER_ACCOUNT_PRIVATE_KEY)
     web3.eth.defaultAccount = addedAccount.address
   }
   else if (network === 'local') {
-    web3 = new Web3(new Web3.providers.WebsocketProvider(LOCAL_PROVIDER))
+    web3 = new Web3(new Web3.providers.WebsocketProvider(LOCAL_PROVIDER), options)
     web3.eth.defaultAccount = LOCAL_SERVER_ACCOUNT_ADDRESS
   }
 
