@@ -17,7 +17,7 @@ const consoleFormat = combine(
 
 // winston.addColors()
 const logger = winston.createLogger({
-  level: 'info',
+  level: 'debug',
   format: generalFormat,
   defaultMeta: { service: 'events-listener' },
   transports: [
