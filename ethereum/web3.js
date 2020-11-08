@@ -32,7 +32,7 @@ function refreshProvider(web3, providerUrl) {
         return setTimeout(refreshProvider, 5000)
       }
     } else {
-      logger.debug(`Reconnecting web3 provider ${config.eth.provider}`)
+      logger.debug(`Reconnecting web3 provider ${providerUrl}`)
       refreshProvider(web3, providerUrl)
     }
 
@@ -46,7 +46,7 @@ function refreshProvider(web3, providerUrl) {
     retry()
   })
   provider.on('error', () => {
-    logger.debug('COnnection error event received.')
+    logger.debug('Connection error event received.')
     retry()
   })
 
