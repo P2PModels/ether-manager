@@ -8,9 +8,10 @@ const {
 } = require('../config')
 const logger = require('../winston')
 
+const noop = () => {}
 const network = argv.network || 'local'
 
-const options = {
+const PROVIDER_OPTIONS = {
   reconnect: {
     auto: true,
     delay: 1000,
@@ -19,61 +20,69 @@ const options = {
   }
 }
 
-function refreshProvider(web3, providerUrl) {
-  let retries = 0
+// function refreshProvider(web3, providerUrl, onReconnect) {
+//   let retries = 0
 
-  function retry(event) {
-    if (event) {
-      logger.debug('Web3 provider disconnected or errored.')
-      retries += 1
+//   function retry(event) {
+//     if (event) {
+//       logger.debug('Web3 provider disconnected or errored.')
+//       retries += 1
 
-      if (retries > 5) {
-        logger.debug(`Max retries of 5 exceeding: ${retries} times tried`)
-        return setTimeout(refreshProvider, 5000)
-      }
-    } else {
-      logger.debug(`Reconnecting web3 provider ${providerUrl}`)
-      refreshProvider(web3, providerUrl)
-    }
+//       if (retries > 5) {
+//         logger.debug(`Max retries of 5 exceeding: ${retries} times tried`)
+//         return setTimeout(refreshProvider, 5000)
+//       }
+//     } else {
+//       logger.debug(`Reconnecting web3 provider ${providerUrl}`)
+//       refreshProvider(web3, providerUrl, onReconnect  )
+//     }
 
-    return null
-  }
+//     return null
+//   }
 
-  const provider = new Web3.providers.WebsocketProvider(providerUrl)
+//   const provider = new Web3.providers.WebsocketProvider(providerUrl, options)
   
-  provider.on('end', () => {
-    logger.debug('Connection end event received')
-    retry()
-  })
-  provider.on('error', () => {
-    logger.debug('Connection error event received.')
-    retry()
-  })
+//   provider.on('end', () => {
+//     logger.debug('Connection end event received')
+//     retry()
+//   })
+//   provider.on('error', () => {
+//     logger.debug('Connection error event received.')
+//     retry()
+//   })
 
-  web3.setProvider(provider)
+//   web3.setProvider(provider)
 
-  logger.debug('New Web3 provider initiated')
+//   logger.debug('New Web3 provider initiated')
+//   onReconnect(web3)
+//   return provider
+// }
 
-  return provider
+function setProviderEventListeners(provider, onConnect, onClose, onError) {
+  provider.on('connect', onConnect)
+  provider.on('end', onClose)
+  provider.on('error', onError)
 }
 
-function setUpWeb3(network = 'local') {
+function setUpWeb3(onConnect = noop, onClose = noop, onError = noop) {
   let web3
   if (network === 'rinkeby') {
-    web3 = new Web3()
-    refreshProvider(web3, RINKEBY_PROVIDER)
+    web3 = new Web3(new Web3.providers.WebsocketProvider(RINKEBY_PROVIDER, PROVIDER_OPTIONS))
+    // web3 = new Web3()
+    // refreshProvider(web3, RINKEBY_PROVIDER, onReconnect)
     const addedAccount = web3.eth.accounts.wallet.add(RINKEBY_SERVER_ACCOUNT_PRIVATE_KEY)
     web3.eth.defaultAccount = addedAccount.address
   }
   else if (network === 'local') {
-    web3 = new Web3()
-    refreshProvider(web3, LOCAL_PROVIDER)
+    // web3 = new Web3()
+    // refreshProvider(web3, LOCAL_PROVIDER, onReconnect)
     web3.eth.defaultAccount = LOCAL_SERVER_ACCOUNT_ADDRESS
   }
+  
+  setProviderEventListeners(web3.currentProvider, onConnect, onClose, onError)
 
   return web3
 }
 
-const web3 = setUpWeb3(network)
+exports.getWeb3 = setUpWeb3
 
-exports.web3 = web3

@@ -86,20 +86,6 @@
     "type": "function"
   },
   {
-    "constant": true,
-    "inputs": [],
-    "name": "RESTART_APP_ROLE",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "constant": false,
     "inputs": [],
     "name": "restart",
@@ -297,20 +283,6 @@
   },
   {
     "constant": true,
-    "inputs": [],
-    "name": "GET_TASK_ROLE",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
     "inputs": [
       {
         "name": "token",
@@ -437,34 +409,6 @@
   {
     "constant": true,
     "inputs": [],
-    "name": "CREATE_TASK_ROLE",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "ALLOCATE_TASK_ROLE",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
     "name": "kernel",
     "outputs": [
       {
@@ -484,20 +428,6 @@
       {
         "name": "",
         "type": "bool"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "CREATE_USER_ROLE",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
       }
     ],
     "payable": false,
@@ -638,6 +568,23 @@
       }
     ],
     "name": "UserDeleted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "userId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "taskId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "RejecterDeleted",
     "type": "event"
   },
   {

@@ -1,11 +1,8 @@
 const { CronJob, CronTime } = require('cron')
-
-const { web3 } = require('../../web3')
-const { timestampToDate, timestampToHour } = require('../../web3-utils')
-const { hexToAscii } = web3.utils
+const { timestampToDate, timestampToHour, hexToAscii } = require('../../web3-utils')
 const logger = require('../../../winston')
-
-const { rrContract, callContractMethod } = require('./round-robin')
+const { getWeb3 } = require('../../web3')
+const { getRRContract, callContractMethod } = require('./round-robin')
 
 const USER_REGISTERED = 'UserRegistered'
 const USER_DELETED = 'UserDeleted'
@@ -14,9 +11,9 @@ const TASK_ALLOCATED = 'TaskAllocated'
 const TASK_ACCEPTED = 'TaskAccepted'
 const TASK_REJECTED = 'TaskRejected'
 const TASK_DELETED = 'TaskDeleted'
+const REJECTER_DELETED = 'RejecterDeleted'
 
 const cronJobs = new Map()
-
 
 function userRegisteredHandler(err, event = {}) {
   const { userId } = event.returnValues || {}
@@ -61,6 +58,7 @@ function taskCreatedHandler(err, event = {}) {
 }
 
 async function taskAllocatedHandler(err, event = {}) {
+  const rrContract = getRRContract(web3)
   const { taskId, userId } = event.returnValues || {}
   if (err)  {
     logger.error(`Error when receiving ${TASK_ALLOCATED} event - ${err}`)
@@ -120,7 +118,7 @@ function taskAcceptedHandler(err, event = {}) {
 
 function taskDeletedHandler(err, event = {}) {
   const { taskId } = event.returnValues || {}
-  if (err)  {
+  if (err) {
     logger.error(`Error when receiving ${TASK_DELETED} event - ${err}`)
   }
   else if (taskId) {
@@ -134,23 +132,51 @@ function taskDeletedHandler(err, event = {}) {
   }
 }
 
+function rejecterDeletedHandler(err, event = {}) {
+  const { userId, taskId } = event.returnValues || {}
+  
+  if (err) {
+    logger.error(`Error when receiving ${REJECTER_DELETED} event - ${err}`)
+  }
+  else {
+    logger.info(`${REJECTER_DELETED} event - Task ${hexToAscii(taskId)} rejecter ${hexToAscii(userId)} deleted`)
+  }
+}
+
 function createReallocationCronJob(taskId, timestamp) {
   const executionDate = timestampToDate(timestamp)
 
-  return new CronJob(executionDate, function () {
+  return new CronJob(executionDate, function () {    
+    // Wait a bit if provider is reconnecting to Infura node
     logger.info(`Executing job with task id: ${hexToAscii(taskId)} on ${executionDate}`)
-    callContractMethod('reallocateTask', [taskId]).then(
-      () => {
-        logger.info(`Job ${hexToAscii(taskId)} executed.`)
-      },
-      err => {
-        logger.error(`Error trying to reallocate task ${taskId} - ${err}`)
-      }
-    )
+    if (web3.currentProvider.reconnecting) {
+      logger.info('Waiting a few seconds to reconnect before executing job')
+      setTimeout(() => {
+        reallocateTask(taskId)
+      }, 1500)
+    }
+    else {
+      reallocateTask(taskId)
+    }
+    
   })
 }
 
-exports.setUpEventListeners = async () => {
+function reallocateTask(taskId) {
+  callContractMethod(web3, 'reallocateTask', [taskId]).then(
+    () => {
+      logger.info(`Job ${hexToAscii(taskId)} executed.`)
+    },
+    err => {
+      logger.error(`Error trying to reallocate task ${taskId} - ${err}`)
+    }
+  )
+}
+
+function setUpEventListeners() {
+
+  const rrContract = getRRContract(web3)
+
   rrContract.events[USER_REGISTERED]({}, userRegisteredHandler)
   rrContract.events[USER_DELETED]({}, userDeletedHandler)
   rrContract.events[TASK_CREATED]({}, taskCreatedHandler)
@@ -158,6 +184,34 @@ exports.setUpEventListeners = async () => {
   rrContract.events[TASK_ACCEPTED]({}, taskAcceptedHandler)
   rrContract.events[TASK_REJECTED]({}, taskRejectedHandler)
   rrContract.events[TASK_DELETED]({}, taskDeletedHandler)
+  rrContract.events[REJECTER_DELETED]({}, rejecterDeletedHandler)
 
   logger.info('Round Robin Events Listener set up')
+  
 }
+
+const onConnect = () => {
+  logger.info('Handle CONNECT event')
+  setUpEventListeners()
+
+}
+
+const onClose = () => {
+  logger.info('Handle CLOSE event')
+
+}
+
+const onError = () => {
+  logger.info('Handle ERROR event')
+}
+
+const web3 = getWeb3(onConnect, onClose, onError)
+
+exports.start = () => {
+  logger.info('Starting event listener script')
+}
+
+// setTimeout(() => {
+//   console.log('closing connection')
+//   web3.currentProvider.disconnect()
+// }, 2000);
