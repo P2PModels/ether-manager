@@ -2,7 +2,7 @@ const { toHex, hexToAscii } = require('web3-utils')
 
 // Every byte consists of two hex values hence 32 * 2 = 64. And 0x + 64 = 66 values
 const toBytes32 = (text, totalLength = 66) => {
-  const hexText = web3utils.toHex(text)
+  const hexText = toHex(text)
   const paddingSize = totalLength - hexText.length
 
   if (paddingSize <= 0) return hexText
