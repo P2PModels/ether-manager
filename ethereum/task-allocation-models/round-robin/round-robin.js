@@ -6,6 +6,7 @@ const {
   argv
 } = require('../../../config')
 const roundRobinAppAbi = require('../../../abis/RoundRobinApp.json')
+const logger = require('../../../winston')
 
 exports.getRRContract = web3 => {
   const network = argv.network || 'local'
@@ -26,7 +27,7 @@ exports.getRRContract = web3 => {
   )
 }
 
-exports.callContractMethod = async (web3, methodName, args) => {
+exports.callContractMethod = async (web3, methodName, args, printTxReceipt = false) => {
   const contract = this.getRRContract(web3)
   const method = contract.methods[methodName](...args)
   const tx = {
@@ -34,11 +35,15 @@ exports.callContractMethod = async (web3, methodName, args) => {
     to: contract.options.address,
     data: method.encodeABI(),
     gas: DEFAULT_GAS,
-    gasPrice: web3.utils.toWei('50', 'gwei')
+    gasPrice: web3.utils.toWei('60', 'gwei')
   }
 
   const { rawTransaction } = await web3.eth.accounts.signTransaction(tx, RINKEBY_SERVER_ACCOUNT_PRIVATE_KEY)
   const response = await web3.eth.sendSignedTransaction(rawTransaction)
+  
+  if (printTxReceipt) {
+    logger.info(`Tx receipt:  ${response}`)
+  }
 
   return response
 }
