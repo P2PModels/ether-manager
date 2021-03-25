@@ -1,8 +1,10 @@
 const { CronJob, CronTime } = require('cron')
 const { timestampToDate, timestampToHour, hexToAscii } = require('../../web3-utils')
 const logger = require('../../../winston')
-const { getWeb3 } = require('../../web3')
-const { getRRContract, callContractMethod } = require('./round-robin')
+const { tasks: mockTasks, INITIAL_TASKS } = require('./mock-data')
+const { sendTransaction } = require('./round-robin')
+const { ASSIGNED_NUM } = require('./task-statuses')
+const { ethers } = require('ethers')
 
 const USER_REGISTERED = 'UserRegistered'
 const USER_DELETED = 'UserDeleted'
@@ -13,15 +15,8 @@ const TASK_REJECTED = 'TaskRejected'
 const TASK_DELETED = 'TaskDeleted'
 const REJECTER_DELETED = 'RejecterDeleted'
 
-const cronJobs = new Map()
-
-function userRegisteredHandler(err, event = {}) {
-  const { userId } = event.returnValues || {}
-
-  if (err) {
-    logger.error(`Error when receiving ${USER_REGISTERED} event - ${err}`)
-  }
-  else if (userId) {
+function userRegisteredHandler(userId) {
+  if (userId) {
     logger.info(`${USER_REGISTERED} event - User ${hexToAscii(userId)} created`)
   }
   else {
@@ -29,13 +24,8 @@ function userRegisteredHandler(err, event = {}) {
   }
 }
 
-function userDeletedHandler(err, event = {}) {
-  const { userId } = event.returnValues || {}
-
-  if (err) {
-    logger.error(`Error when receiving ${USER_DELETED} event - ${err}`)
-  }
-  else if (userId){
+function userDeletedHandler(userId) {
+  if (userId){
     logger.info(`${USER_DELETED} event - User ${hexToAscii(userId)} deleted`)
   }
   else {
@@ -43,13 +33,8 @@ function userDeletedHandler(err, event = {}) {
   }
 }
 
-function taskCreatedHandler(err, event = {}) {
-  const { taskId } = event.returnValues || {}
-
-  if (err) {
-    logger.error(`Error when receiving ${TASK_CREATED} event - ${err}`)
-  }
-  else if (taskId) {
+function taskCreatedHandler(taskId) {
+  if (taskId) {
     logger.info(`${TASK_CREATED} event - Task ${hexToAscii(taskId)} created`)
   }
   else {
@@ -57,25 +42,21 @@ function taskCreatedHandler(err, event = {}) {
   }
 }
 
-async function taskAllocatedHandler(err, event = {}) {
-  const rrContract = getRRContract(web3)
-  const { taskId, userId } = event.returnValues || {}
-  if (err)  {
-    logger.error(`Error when receiving ${TASK_ALLOCATED} event - ${err}`)
-  }
-  else if (taskId && userId) {
-    const { endDate } = await rrContract.methods.getTask(taskId).call()
+async function taskAllocatedHandler(cronJobs, rrContract, { userId, taskId }) {
+  if (taskId && userId) {
+    const { endDate } = await rrContract.getTask(taskId)
+    const endDateNumber = endDate.toNumber()
 
     logger.info(
-      `${TASK_ALLOCATED} event - Task ${hexToAscii(taskId)} has been assigned to ${hexToAscii(userId)} and will be reassigned on ${timestampToHour(endDate)}`
+      `${TASK_ALLOCATED} event - Task ${hexToAscii(taskId)} has been assigned to ${hexToAscii(userId)} and will be reassigned on ${timestampToHour(endDateNumber)}`
     )
 
     let cronJob
     if (cronJobs.has(taskId)) {
       cronJob = cronJobs.get(taskId)
-      cronJob.setTime(new CronTime(timestampToDate(endDate)))
+      cronJob.setTime(new CronTime(timestampToDate(endDateNumber)))
     } else {
-      cronJob = createReallocationCronJob(taskId, endDate)
+      cronJob = createReallocationCronJob(rrContract, taskId, endDateNumber)
       cronJobs.set(taskId, cronJob)
     }
     cronJob.start()
@@ -87,25 +68,23 @@ async function taskAllocatedHandler(err, event = {}) {
   }
 }
 
-function taskRejectedHandler(err, event = {}) {
-  const { taskId, userId } = event.returnValues || {}
-  if (err) {
-    logger.error(`Error when receiving ${TASK_REJECTED} event - ${err}`)
-  }
-  else if (taskId && userId) {
+function taskRejectedHandler(cronJobs, rrContract, { userId, taskId }) {
+  if (taskId && userId) {
     logger.info(
       `${TASK_REJECTED} event - Task ${hexToAscii(taskId)} rejected by ${hexToAscii(userId)}`
     )
+    if (cronJobs.has(taskId)) {
+      cronJobs.get(taskId).stop()
+    }
+    sendTransaction(rrContract, 'reallocateTask', [taskId])
   }
   else {
     logger.info(`${TASK_REJECTED} event - No params received`)
   }
 }
 
-function taskAcceptedHandler(err, event = {}) {
-  const { taskId, userId } = event.returnValues || {}
-  if (err) logger.error(`Error when receiving ${TASK_ACCEPTED} event - ${err}`)
-  else if (taskId, userId) {
+function taskAcceptedHandler(cronJobs, { userId, taskId }) {
+  if (taskId && userId) {
     logger.info(`${TASK_ACCEPTED} event - Task ${hexToAscii(taskId)} accepted by user ${hexToAscii(userId)}`)
     if (cronJobs.has(taskId)) {
       cronJobs.get(taskId).stop()
@@ -116,12 +95,8 @@ function taskAcceptedHandler(err, event = {}) {
   }
 }
 
-function taskDeletedHandler(err, event = {}) {
-  const { taskId } = event.returnValues || {}
-  if (err) {
-    logger.error(`Error when receiving ${TASK_DELETED} event - ${err}`)
-  }
-  else if (taskId) {
+function taskDeletedHandler(cronJobs, { taskId }) {
+  if (taskId) {
     logger.info(`${TASK_DELETED} event - Task ${hexToAscii(taskId)} deleted`)
     if (cronJobs.has(taskId)) {
       cronJobs.get(taskId).stop()
@@ -132,86 +107,55 @@ function taskDeletedHandler(err, event = {}) {
   }
 }
 
-function rejecterDeletedHandler(err, event = {}) {
-  const { userId, taskId } = event.returnValues || {}
-  
-  if (err) {
-    logger.error(`Error when receiving ${REJECTER_DELETED} event - ${err}`)
-  }
-  else {
-    logger.info(`${REJECTER_DELETED} event - Task ${hexToAscii(taskId)} rejecter ${hexToAscii(userId)} deleted`)
-  }
+function rejecterDeletedHandler(userId, taskId) {  
+  logger.info(`${REJECTER_DELETED} event - Task ${hexToAscii(taskId)} rejecter ${hexToAscii(userId)} deleted`)
 }
 
-function createReallocationCronJob(taskId, timestamp) {
+function createReallocationCronJob(rrContract, taskId, timestamp) {
   const executionDate = timestampToDate(timestamp)
 
-  return new CronJob(executionDate, function () {    
-    // Wait a bit if provider is reconnecting to Infura node
-    logger.info(`Executing job with task id: ${hexToAscii(taskId)} on ${executionDate}`)
-    if (web3.currentProvider.reconnecting) {
-      logger.info('Waiting a few seconds to reconnect before executing job')
-      setTimeout(() => {
-        reallocateTask(taskId)
-      }, 1500)
-    }
-    else {
-      reallocateTask(taskId)
-    }
-    
+  return new CronJob(executionDate, function () {
+    sendTransaction(rrContract, 'reallocateTask', [taskId]).then(
+      () => logger.info(`Job ${hexToAscii(taskId)} executed on ${executionDate}`)
+    )
   })
 }
 
-function reallocateTask(taskId) {
-  callContractMethod(web3, 'reallocateTask', [taskId]).then(
-    () => {
-      logger.info(`Job ${hexToAscii(taskId)} executed.`)
-    },
-    err => {
-      logger.error(`Error trying to reallocate task ${taskId} - ${err}`)
+exports.createJobsForMockTasks = async (cronJobs, rrContract) => {
+  const tasksIds = mockTasks
+    .map(({ job_id: taskId }) => taskId)
+    .slice(0, INITIAL_TASKS)
+    .map(tId => ethers.utils.formatBytes32String(tId))
+  const tasks = await Promise.all(tasksIds.map(tId => rrContract.getTask(tId)))
+  const allocatedTasks = tasks.filter(t => Number(t.status) === ASSIGNED_NUM)
+  let cronJob
+
+  logger.info(`Preparing existing tasks`)
+
+  for (let i = 0; i < allocatedTasks.length; i++) {
+    const { endDate: timestamp } = allocatedTasks[i]
+    const now = new Date()
+    const endDate = timestampToDate(timestamp.toNumber()) 
+    const tId = tasksIds[i]
+    if (endDate <= now) {
+      await  sendTransaction(rrContract, 'reallocateTask', [tId])
+    } else {
+      logger.info('Creating job for existing task ' + hexToAscii(tId) + ' for ' + endDate)
+      cronJob = createReallocationCronJob(rrContract, tId, timestamp.toNumber())
+      cronJobs.set(tId, cronJob)
     }
-  )
+  }
 }
 
-function setUpEventListeners() {
+exports.setUpEventListeners = async (cronJobs, rrContract) => {
+  rrContract.on(USER_REGISTERED, userRegisteredHandler)
+  rrContract.on(USER_DELETED, userDeletedHandler)
+  rrContract.on(TASK_CREATED, taskCreatedHandler)
+  rrContract.on(TASK_ALLOCATED, (userId, taskId) => taskAllocatedHandler(cronJobs, rrContract, { userId, taskId }))
+  rrContract.on(TASK_ACCEPTED, (userId, taskId) => taskAcceptedHandler(cronJobs, { userId, taskId }))
+  rrContract.on(TASK_REJECTED, (userId, taskId) => taskRejectedHandler(cronJobs, rrContract, { userId, taskId }))
+  rrContract.on(TASK_DELETED, taskId => taskDeletedHandler(cronJobs, { taskId }))
+  rrContract.on(REJECTER_DELETED, rejecterDeletedHandler)
 
-  const rrContract = getRRContract(web3)
-
-  rrContract.events[USER_REGISTERED]({}, userRegisteredHandler)
-  rrContract.events[USER_DELETED]({}, userDeletedHandler)
-  rrContract.events[TASK_CREATED]({}, taskCreatedHandler)
-  rrContract.events[TASK_ALLOCATED]({}, taskAllocatedHandler)
-  rrContract.events[TASK_ACCEPTED]({}, taskAcceptedHandler)
-  rrContract.events[TASK_REJECTED]({}, taskRejectedHandler)
-  rrContract.events[TASK_DELETED]({}, taskDeletedHandler)
-  rrContract.events[REJECTER_DELETED]({}, rejecterDeletedHandler)
-
-  logger.info('Round Robin Events Listener set up')
-  
+  logger.info('Events listeners set up')
 }
-
-const onConnect = () => {
-  logger.info('Handle CONNECT event')
-  setUpEventListeners()
-
-}
-
-const onClose = () => {
-  logger.info('Handle CLOSE event')
-
-}
-
-const onError = () => {
-  logger.info('Handle ERROR event')
-}
-
-const web3 = getWeb3(onConnect, onClose, onError)
-
-exports.start = () => {
-  logger.info('Starting event listener script')
-}
-
-// setTimeout(() => {
-//   console.log('closing connection')
-//   web3.currentProvider.disconnect()
-// }, 2000);

@@ -1,8 +1,13 @@
-const { web3 } = require('../../web3')
+const { formatBytes32String } = require('ethers/lib/utils')
+const { timestampToHour, hexToAscii } = require('../../web3-utils')
+const { DEFAULT_GAS } = require('../../../config')
+const { getSigner } = require('../../ethers')
+const { users, tasks, reallocationTimes, INITIAL_TASKS } = require('./mock-data')
+const { getRRContract } = require('./round-robin')
 
-const { users, tasks, reallocationTimes } = require('./mock-data')
-
-const { rrContract, callContractMethod } = require('./round-robin')
+const signer = getSigner()
+const contract = getRRContract(signer)
+const options = { gasLimit: 850000, /* gasPrice: 20000000000 */ }
 
 async function getInitialTasksIds(tasks, maxTasks = 1) {
   const tasksIds = tasks.map(({ job_id: taskId }) => taskId)
@@ -10,73 +15,48 @@ async function getInitialTasksIds(tasks, maxTasks = 1) {
 }
 
 async function registerMockUserAccounts(userAccounts) {
-  // const batch = new web3.BatchRequest()
-  
+  const createdAccounts = []
   for (let i = 0; i < userAccounts.length; i++) {
-    const hexUser = web3.utils.toHex(userAccounts[i])
-    const { transactionHash } = await callContractMethod('registerUser', [hexUser])
-    console.log(`User ${userAccounts[i]} created. Tx hash: ${transactionHash}`)
+    try {
+      const hexUser = formatBytes32String(userAccounts[i])
+      const txResponse = await contract.registerUser(hexUser, options)
+      const txReceipt = await txResponse.wait()
+      createdAccounts.push(userAccounts[i])
+      console.log(`User ${userAccounts[i]} created on tx ${txReceipt.transactionHash}`)
+    } catch (err) {
+      console.error(`Error when creating ${userAccounts[i]}`)
+      console.error(err)
+    }
   }
-  // userAccounts.forEach(acc => {
-  //   const hexUser = web3.utils.toHex(acc)
-  //   batch.add(
-  //     rrContract.methods.registerUser(hexUser).send.request({ from: web3.eth.defaultAccount }, err => {
-  //       if (err) console.error(err)
-  //     })
-  //   )
-  // })
-  // batch.execute()
+  return createdAccounts
 }
 
 async function createMockTasks(tasks) {
-  // const batch = new web3.BatchRequest()
-  // tasks.forEach((id, index) => {
-  //   const hexId = web3.utils.toHex(id)
-  //   const reallocationTime = reallocationTimes[index]
-  //   // const reallocationTime = getRandomElement(reallocationTimes)
-  //   batch.add(
-  //     rrContract.methods
-  //       .createTask(hexId, reallocationTime)
-  //       .send.request({}, err => {
-  //         if (err) console.error(err)
-  //       })
-  //   )
-  // })
-  // batch.execute()
-
+  const createdTasks = []
   for (let i = 0; i < tasks.length; i++) {
-    const hexId = web3.utils.toHex(tasks[i])
-    const reallocationTime = reallocationTimes[i]
-    const { transactionHash } = await callContractMethod('createTask', [hexId, reallocationTime])
-    console.log(`Task ${tasks[i]} created. Tx hash: ${transactionHash}`)
+    try {
+      const hexId = formatBytes32String(tasks[i])
+      const reallocationTime = reallocationTimes[i]
+      const txResponse = await contract.createTask(hexId, reallocationTime, options)
+      const txReceipt = await txResponse.wait()
+
+      createdTasks.push(tasks[i])
+      console.log(`Task ${tasks[i]} created on tx ${txReceipt.transactionHash}`)
+    } catch (err) {
+      console.error(`Error when creating task ${tasks[id]}`)
+      console.error(err)
+    }
   }
+
+  return createdTasks
 }
 
 async function allocateMockTasks(tasks, userAccounts) {
-  // const batch = new web3.BatchRequest()
   const userTaskRegistry = userAccounts.reduce((reg, currUser) => {
     reg[currUser] = 0
     return reg
   }, {})
-  const maxAllocatedTasks = await rrContract.methods
-    .MAX_ALLOCATED_TASKS()
-    .call()
-  // tasks.forEach(id => {
-  //   let randomUser = getRandomElement(userAccounts)
-  //   while (userTaskRegistry[randomUser] >= maxAllocatedTasks) {
-  //     randomUser = getRandomElement(userAccounts)
-  //   }
-  //   userTaskRegistry[randomUser]++
-  //   const hexId = web3.utils.toHex(id)
-  //   const hexUser = web3.utils.toHex(randomUser)
-
-  //   batch.add(
-  //     rrContract.methods.allocateTask(hexId, hexUser).send.request({}, err => {
-  //       if (err) console.error(err)
-  //     })
-  //   )
-  // })
-  // batch.execute()
+  const maxAllocatedTasks = await contract.MAX_ALLOCATED_TASKS()
 
   for (let i = 0; i < tasks.length; i++) {
     let randomUser = getRandomElement(userAccounts)
@@ -84,10 +64,12 @@ async function allocateMockTasks(tasks, userAccounts) {
       randomUser = getRandomElement(userAccounts)
     }
     userTaskRegistry[randomUser]++
-    const hexId = web3.utils.toHex(tasks[i])
-    const hexUser =  web3.utils.toHex(randomUser)
-    const { transactionHash } = await callContractMethod('allocateTask', [hexId, hexUser])
-    console.log(`Task ${tasks[i]} created. Tx hash: ${transactionHash}`)
+    const hexId = formatBytes32String(tasks[i])
+    const hexUser = formatBytes32String(randomUser)
+
+    const txResponse = await contract.allocateTask(hexId, hexUser, options)
+    const txReceipt = await txResponse.wait()
+    console.log(`Task ${tasks[i]} assigned to user ${randomUser} on tx ${txReceipt.transactionHash}`)
   }
 }
 
@@ -95,11 +77,28 @@ function getRandomElement(elements) {
   return elements[Math.floor(Math.random() * elements.length)]
 }
 
+async function getTasks(tasksIds) {
+  const tasks = await Promise.all(tasksIds.map(tId => contract.getTask(tId)))
+  console.log(tasks)
+}
+
+async function restartContract() {
+  const txResponse = await contract.restart()
+  const txReceipt = await txResponse.wait()
+
+  console.log(`Contract restarted on tx ${txReceipt.transactionHash}`)
+}
+
 exports.generateMockData = async () => {
+  const tasksIds = await getInitialTasksIds(tasks, INITIAL_TASKS)
+
   // Register amara users
-  // registerMockUserAccounts(users)
-  const tasksIds = await getInitialTasksIds(tasks, 4)
-  // // Create and allocate tasks
-  createMockTasks(tasksIds)
-  // allocateMockTasks(tasksIds, users)
+  // const createdAccounts = await registerMockUserAccounts(users)
+  // console.log(createdAccounts)
+  // Create and allocate tasks
+  // const createdTaskIds = await createMockTasks(tasksIds)
+  // allocateMockTasks([tasksIds[1], tasksIds[2]], createdAccounts)
+  await allocateMockTasks(tasksIds, users)
+
+  // restartContract()
 }
