@@ -1,14 +1,15 @@
+exports.INITIAL_TASKS = 4
 exports.team = 'collab-demo-team'
 exports.users = [
-  // 'p2pmodels.user1',
-  // 'p2pmodels.user2',
+  'p2pmodels.user1',
+  'p2pmodels.user2',
   'p2pmodels.user3',
   'p2pmodels.user4',
   'p2pmodels.user5',
   'p2pmodels.user6',
 ]
-// 2, 5, 15 and 30 min
-exports.reallocationTimes = [120, 300, 900, 1800]
+// 5, 10, 15 and 30 min
+exports.reallocationTimes = [300, 600, 900, 1800]
 exports.tasks = [
   {
     job_id: 'JS4TMAF',
