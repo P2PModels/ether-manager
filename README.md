@@ -11,7 +11,7 @@ It creates `cron jobs` for reallocation assignments among Amara linguists
 2. Set Infura keys and project endpoint in `.env`
 3. Run `npm run start`
 
-Ether manager will listen for events triggered into the Ethereum rinkedby network.
+Ether Manager will listen for events emitted into the Ethereum rinkedby network.
 
 ### Docker
 
