@@ -12,6 +12,7 @@
     "start:local": "scripts/start-event-listeners.js --network local",
     "start:rinkeby": "scripts/start-event-listeners.js --network rinkeby",
     "start": "scripts/start-event-listeners.js --network rinkeby",
+    "restart-contract": "scripts/restart-contract.js --network rinkeby",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

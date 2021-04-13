@@ -82,7 +82,9 @@ async function getTasks(tasksIds) {
   console.log(tasks)
 }
 
-async function restartContract() {
+exports.restartContract = async () => {
+  console.log('Restarting contract...')
+
   const txResponse = await contract.restart()
   const txReceipt = await txResponse.wait()
 
