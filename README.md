@@ -12,3 +12,9 @@ It creates `cron jobs` for reallocation assignments among Amara linguists
 3. Run `npm run start`
 
 Ether manager will listen for events triggered into the Ethereum rinkedby network.
+
+### Docker
+
+1. Follow steps 0 to 2 described aboved
+2. Create container image `docker image -t ether-manager .`
+3. Execute container (in background) `docker run -d ether-manager`
