@@ -28,7 +28,7 @@ rinkedby network.
 
 ## Restart contract
 
-From time to time, it might be required to "reset" the contact state (i.e., remove 
+From time to time, it might be required to "reset" the state of the contract (i.e., remove 
 tasks, allocations, and users). To do, execute `npm run restart-contract`. After
 contract restarted, it might be needed to generate mock data, to do so run 
 `npm run create-mock-data`.
