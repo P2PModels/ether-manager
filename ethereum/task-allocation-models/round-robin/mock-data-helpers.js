@@ -66,9 +66,13 @@ async function allocateMockTasks(tasks, userAccounts) {
     userTaskRegistry[randomUser]++
     const hexId = formatBytes32String(tasks[i])
     const hexUser = formatBytes32String(randomUser)
-
+    
+    console.log(`Sending transaction to allocate task ${tasks[i]} to user ${randomUser}...`)
     const txResponse = await contract.allocateTask(hexId, hexUser, options)
+
+    console.log('Awaiting response...')
     const txReceipt = await txResponse.wait()
+
     console.log(`Task ${tasks[i]} assigned to user ${randomUser} on tx ${txReceipt.transactionHash}`)
   }
 }
