@@ -140,11 +140,10 @@ function createReallocationCronJob(rrContract, taskId, timestamp) {
 
 /**
  * Function implemented to create cronjobs for tasks that were
- * already allocated.
- * The primary use case is for situations when the ether manager stops
- * and there tasks already allocated. These already allocated tasks
- * exist in the contract but their cronjobs are lost. So, new cronjobs
- * need to be created for these tasks.
+ * already allocated. The primary use case is for situations when 
+ * the ether manager stops and there tasks already allocated. These 
+ * already allocated tasks exist in the contract but their cronjobs 
+ * are lost. So, new cronjobs need to be created for these tasks.
  */
 exports.createJobsForAllocatedTasks = async (cronJobs, rrContract) => {
   // Get task ids
