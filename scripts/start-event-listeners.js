@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { setUpEventListeners, createJobsForMockTasks } = require('../ethereum/task-allocation-models/round-robin/event-listener-helpers')
+const { setUpEventListeners, createJobsForAllocatedTasks } = require('../ethereum/task-allocation-models/round-robin/event-listener-helpers')
 const { getSigner } = require('../ethereum/ethers')
 const { getRRContract } = require('../ethereum/task-allocation-models/round-robin/round-robin')
 const logger = require('../winston')
@@ -20,7 +20,7 @@ function start() {
       logger.info(`Maximum ${MAXIMUM_RETRIES} retries exceeded:  ${retries} times tried`)
       setTimeout(run, WAITING_TIME)
     } else {
-      run()
+      start()
     }
 
   }
@@ -37,7 +37,7 @@ function start() {
 
   setUpEventListeners(cronJobs, rrContract)
 
-  createJobsForMockTasks(cronJobs, rrContract)
+  createJobsForAllocatedTasks(cronJobs, rrContract)
 }
 
 start()
