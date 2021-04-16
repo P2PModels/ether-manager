@@ -146,7 +146,7 @@ function createReallocationCronJob(rrContract, taskId, timestamp) {
  * exist in the contract but their cronjobs are lost. So, new cronjobs
  * need to be created for these tasks.
  */
-exports.createJobsForMockTasks = async (cronJobs, rrContract) => {
+exports.createJobsForAllocatedTasks = async (cronJobs, rrContract) => {
   // Get task ids
   const tasksIds = mockTasks
     .map(({ job_id: taskId }) => taskId)
