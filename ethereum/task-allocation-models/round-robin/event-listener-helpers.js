@@ -44,6 +44,8 @@ function taskCreatedHandler(taskId) {
 
 async function taskAllocatedHandler(cronJobs, rrContract, { userId, taskId }) {
   if (taskId && userId) {
+    // endDate indicates when the task should be
+    // reallocated
     const { endDate } = await rrContract.getTask(taskId)
     const endDateNumber = endDate.toNumber()
 
@@ -52,10 +54,16 @@ async function taskAllocatedHandler(cronJobs, rrContract, { userId, taskId }) {
     )
 
     let cronJob
+    // Check if there is already a cron job for the taskId
     if (cronJobs.has(taskId)) {
+      // If there is already a cron job for the taskId,
+      // the cronjob is obtained and set a new time considering
+      // its endDate
       cronJob = cronJobs.get(taskId)
       cronJob.setTime(new CronTime(timestampToDate(endDateNumber)))
     } else {
+      // If the task is being assigned for the first time, a cron job 
+      // is created and saved into cronJobs
       cronJob = createReallocationCronJob(rrContract, taskId, endDateNumber)
       cronJobs.set(taskId, cronJob)
     }
@@ -74,11 +82,15 @@ function taskRejectedHandler(cronJobs, rrContract, { userId, taskId }) {
       `${TASK_REJECTED} event - Task ${hexToAscii(taskId)} rejected by ${hexToAscii(userId)}`
     )
     if (cronJobs.has(taskId)) {
+      // Whenever a rejected task event is received the cronjob is stopped
       cronJobs.get(taskId).stop()
     }
+    // The rejected task indicated by taskId is reassigned
     sendTransaction(rrContract, 'reallocateTask', [taskId])
   }
   else {
+    // This else was implemented to control for situations in which 
+    // the task rejected task event is emitted without parameters
     logger.info(`${TASK_REJECTED} event - No params received`)
   }
 }
@@ -87,6 +99,8 @@ function taskAcceptedHandler(cronJobs, { userId, taskId }) {
   if (taskId && userId) {
     logger.info(`${TASK_ACCEPTED} event - Task ${hexToAscii(taskId)} accepted by user ${hexToAscii(userId)}`)
     if (cronJobs.has(taskId)) {
+      // Whenever an accepted task event is received the corresponding cronjob
+      // is stopped
       cronJobs.get(taskId).stop()
     }
   }
@@ -99,6 +113,8 @@ function taskDeletedHandler(cronJobs, { taskId }) {
   if (taskId) {
     logger.info(`${TASK_DELETED} event - Task ${hexToAscii(taskId)} deleted`)
     if (cronJobs.has(taskId)) {
+      // Whenever a deleted task event is received the corresponding cronjob
+      // is stopped
       cronJobs.get(taskId).stop()
     }
   }
@@ -114,6 +130,7 @@ function rejecterDeletedHandler(userId, taskId) {
 function createReallocationCronJob(rrContract, taskId, timestamp) {
   const executionDate = timestampToDate(timestamp)
 
+  // reallocateTask is called when executionDate arrives
   return new CronJob(executionDate, function () {
     sendTransaction(rrContract, 'reallocateTask', [taskId]).then(
       () => logger.info(`Job ${hexToAscii(taskId)} executed on ${executionDate}`)
@@ -121,25 +138,48 @@ function createReallocationCronJob(rrContract, taskId, timestamp) {
   })
 }
 
+/**
+ * Function implemented to create cronjobs for tasks that were
+ * already allocated.
+ * The primary use case is for situations when the ether manager stops
+ * and there tasks already allocated. These already allocated tasks
+ * exist in the contract but their cronjobs are lost. So, new cronjobs
+ * need to be created for these tasks.
+ */
 exports.createJobsForMockTasks = async (cronJobs, rrContract) => {
+  // Get task ids
   const tasksIds = mockTasks
     .map(({ job_id: taskId }) => taskId)
     .slice(0, INITIAL_TASKS)
     .map(tId => ethers.utils.formatBytes32String(tId))
+  
+  // Get tasks from the contract given taskIds
+  // Promise.all receives an array of promises and return an error
+  // if some of the given promises fail. If no error occurr, meaning,
+  // for this case, all tasks exist in the contract.
   const tasks = await Promise.all(tasksIds.map(tId => rrContract.getTask(tId)))
+
+  // Select only those tasks that were assigned. Tasks that were accepted,
+  // rejected, or completed are filtered out. 
   const allocatedTasks = tasks.filter(t => Number(t.status) === ASSIGNED_NUM)
+
   let cronJob
 
-  logger.info(`Preparing existing tasks`)
+  logger.info(`Preparing existing  and assigned tasks`)
 
   for (let i = 0; i < allocatedTasks.length; i++) {
+    // endDate is the time when the task should have been
+    // reasigned
     const { endDate: timestamp } = allocatedTasks[i]
     const now = new Date()
     const endDate = timestampToDate(timestamp.toNumber()) 
     const tId = tasksIds[i]
+    // If the task's end date has already passed, task should be reallocated
     if (endDate <= now) {
       await  sendTransaction(rrContract, 'reallocateTask', [tId])
     } else {
+      // If the task's end date hasn't already passed, the task is still valid
+      // so the cronjob is created
       logger.info('Creating job for existing task ' + hexToAscii(tId) + ' for ' + endDate)
       cronJob = createReallocationCronJob(rrContract, tId, timestamp.toNumber())
       cronJobs.set(tId, cronJob)
