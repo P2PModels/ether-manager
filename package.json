@@ -13,7 +13,8 @@
     "start:rinkeby": "scripts/start-event-listeners.js --network rinkeby",
     "start": "scripts/start-event-listeners.js --network rinkeby",
     "restart-contract": "scripts/restart-contract.js --network rinkeby",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "get-contract-status": "scripts/get-contract-status.js --network rinkeby"
   },
   "keywords": [
     "ethereum",
