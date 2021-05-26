@@ -41,7 +41,7 @@ getContractStatus = async () => {
                 break
             case ASSIGNED_NUM:
                 const endDate = timestampToDate(timestamp.toNumber())
-                logger.info('Status: ASIGNED')
+                logger.info('Status: ASSIGNED')
                 logger.info(`User: ${hexToAscii(assignee)}`)
                 logger.info(`Reasigned by: ${endDate}`)
                 break
