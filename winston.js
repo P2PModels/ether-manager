@@ -1,6 +1,5 @@
 const winston = require('winston')
 const { path: rootPath } = require('app-root-path')
-const { argv } = require('./config')
 
 const {combine, timestamp, prettyPrint, colorize , printf} = winston.format
 
