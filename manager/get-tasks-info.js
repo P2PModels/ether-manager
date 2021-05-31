@@ -1,14 +1,18 @@
 const { ethers } = require('ethers')
-const { getRRContract } = require('./utils')
-const { getSigner } = require('../ethereum/ethers')
+const { getSigner, getRRContract } = require('./utils')
 const { tasks: mockTasks, INITIAL_TASKS } = require('../ethereum/task-allocation-models/round-robin/mock-data')
 const { ASSIGNED_NUM, ACCEPTED_NUM, REJECTED_NUM } = require('../ethereum/task-allocation-models/round-robin/task-statuses')
 const { timestampToDate, hexToAscii } = require('../ethereum/web3-utils')
 
 
-exports.processTasksInfo = async () => {
-    console.log('Opening connection to Ethereum...')
-    const signer = getSigner()
+exports.processTasksInfo = async (existingSigner) => {
+    let signer = undefined
+    if (!existingSinger) {
+        console.log('Opening connection to Ethereum...')
+        signer = getSigner()
+    } else {
+        signer = existingSigner
+    }
     
     console.log('Getting contract "handler"')
     const rrContract = getRRContract(signer)
@@ -50,8 +54,10 @@ exports.processTasksInfo = async () => {
         taskObjs.push(taskObj)
     }
 
-    console.log('Closing connection...')
-    signer.provider._websocket.terminate()
+    if (!existingSinger) {
+        console.log('Closing connection...')
+        signer.provider._websocket.destroy()
+    }
 
     return taskObjs
 }

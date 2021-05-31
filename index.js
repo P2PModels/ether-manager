@@ -13,21 +13,21 @@ exports.startManager = () => {
 exports.stopManager = (signer) => {
     console.log('Stopping manager...')
     console.log(signer)
-    signer.provider._websocket.terminate()
+    signer.provider.destroy()
 }
 
-exports.restartContract = () => {
+exports.restartContract = (signer=undefined) => {
     console.log('Restarting contract...')
-    //restart()
+    restart(signer)
 }
 
-exports.getContractStatus = () => {
+exports.getContractStatus = (signer=undefined) => {
     console.log('Getting contract status...')
-    //const tasks = processTasksInfo()
-    //return tasks
+    const tasks = processTasksInfo(signer)
+    return tasks
 }
 
-exports.reallocateTasks = () => {
+exports.reallocateTasks = (signer=undefined) => {
     console.log('Reallocating tasks...')
-    //reallocate()
+    reallocate(signer)
 }

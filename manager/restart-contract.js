@@ -1,13 +1,16 @@
-const { getRRContract } = require('./utils')
-const { getSigner } = require('../ethereum/ethers')
+const { getSigner, getRRContract } = require('./utils')
 
 
-exports.restartContract = async () => {
-    const signer = getSigner()
-
-    console.log('Opening connection...')
+exports.restartContract = async (existingSinger) => {
+    let signer = undefined
+    if (!existingSinger) {
+        console.log('Opening connection...')
+        signer = getSigner()
+    } else {
+        signer = existingSinger
+    }
     const contract = getRRContract(signer)
-    
+
     console.log('Sending transaction...')
     const txResponse = await contract.restart()
     
@@ -16,6 +19,8 @@ exports.restartContract = async () => {
     
     console.log(`Contract restarted on tx ${txReceipt.transactionHash}`)
     
-    console.log('Closing connection...')
-    signer.provider._websocket.terminate()
+    if (!existingSinger) {
+        console.log('Closing connection...')
+        signer.provider._websocket.destroy()
+    }
 }

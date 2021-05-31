@@ -1,11 +1,11 @@
-const { getRRContract, setUpEventListeners,  createJobsForAllocatedTasks} = require('./utils')
-const { getSigner } = require('../ethereum/ethers')
+const { getRRContract, getSigner } = require('./utils')
+const { setUpEventListeners,  createJobsForAllocatedTasks} = require('./helpers')
 
 const WAITING_TIME = 5000
 const MAXIMUM_RETRIES = 5
 
 
-exports.startManager = () => {
+function startManager() {
   const cronJobs = new Map()
   let retries = 0
 
@@ -25,11 +25,11 @@ exports.startManager = () => {
 
   const signer = getSigner()
 
-  signer.provider._websocket.on('close', () => retry())
-  signer.provider._websocket.on('error', error => {
+  //signer.provider._websocket.onclose = () => retry()
+  signer.provider._websocket.onerror = error => {
     console.log(`Connection error: ${error}`)
     retry()
-  })
+  }
 
   const rrContract = getRRContract(signer)
 
@@ -39,3 +39,5 @@ exports.startManager = () => {
 
   return signer
 }
+
+module.exports = { startManager }
