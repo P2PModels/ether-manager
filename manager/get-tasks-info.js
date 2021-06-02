@@ -1,18 +1,15 @@
 const { ethers } = require('ethers')
-const { getSigner, getRRContract } = require('./utils')
+const { getAdHocSigner, getRRContract } = require('./utils')
 const { tasks: mockTasks, INITIAL_TASKS } = require('../ethereum/task-allocation-models/round-robin/mock-data')
 const { ASSIGNED_NUM, ACCEPTED_NUM, REJECTED_NUM } = require('../ethereum/task-allocation-models/round-robin/task-statuses')
 const { timestampToDate, hexToAscii } = require('../ethereum/web3-utils')
 
 
-exports.processTasksInfo = async (existingSigner) => {
+exports.processTasksInfo = async () => {
     let signer = undefined
-    if (!existingSinger) {
-        console.log('Opening connection to Ethereum...')
-        signer = getSigner()
-    } else {
-        signer = existingSigner
-    }
+    
+    console.log('Opening ad-hoc connection to Ethereum...')
+    signer = getAdHocSigner()
     
     console.log('Getting contract "handler"')
     const rrContract = getRRContract(signer)
@@ -27,8 +24,6 @@ exports.processTasksInfo = async (existingSigner) => {
     // Get tasks from the contract given taskIds
     console.log('Getting tasks from contract...')
     const tasks = await Promise.all(taskIds.map(tId => rrContract.getTask(tId)))
-    
-    id, status, user, reassignedBy
 
     let taskObjs = []
     for (let i = 0; i < tasks.length; i++) {
@@ -54,10 +49,5 @@ exports.processTasksInfo = async (existingSigner) => {
         taskObjs.push(taskObj)
     }
 
-    if (!existingSinger) {
-        console.log('Closing connection...')
-        signer.provider._websocket.destroy()
-    }
-
-    return taskObjs
+    return JSON.stringify(taskObjs)
 }
