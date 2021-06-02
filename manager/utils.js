@@ -13,16 +13,18 @@ function getRRContract(signer) {
     return new Contract(contractAddress, roundRobinAppAbi, signer)
 }
 
-function getSigner(network='rinkeby') {
-    console.log(`INFURA_PROJECT_ID: ${INFURA_PROJECT_ID}`)
-    const provider = ethers.providers.InfuraProvider.getWebSocketProvider(network, INFURA_PROJECT_ID)
-    let signer
-
-    console.log(`RINKEBY_SERVER_ACCOUNT_PRIVATE_KEY: ${RINKEBY_SERVER_ACCOUNT_PRIVATE_KEY}`)
-    console.log(RINKEBY_SERVER_ACCOUNT_PRIVATE_KEY)
-    signer = new ethers.Wallet(RINKEBY_SERVER_ACCOUNT_PRIVATE_KEY, provider)
-  
-    return signer
+function setUpSigner(provider) {
+    return new ethers.Wallet(RINKEBY_SERVER_ACCOUNT_PRIVATE_KEY, provider)
 }
 
-module.exports = { getRRContract, getSigner }
+function getAdHocSigner(network='rinkeby') {
+    return setUpSigner(new ethers.providers.InfuraProvider(network, INFURA_PROJECT_ID))
+}
+
+function getSigner(network='rinkeby') {
+    // Create a websocket to Ethereum
+    const provider = ethers.providers.InfuraProvider.getWebSocketProvider(network, INFURA_PROJECT_ID)
+    return setUpSigner(provider)
+}
+
+module.exports = { getRRContract, getSigner, getAdHocSigner }
