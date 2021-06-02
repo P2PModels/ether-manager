@@ -1,17 +1,13 @@
 const { ethers } = require('ethers')
-const { getSigner, getRRContract } = require('./utils')
+const { getAdHocSigner, getRRContract } = require('./utils')
+const { sendTransaction } = require('./helpers')
 const { tasks: mockTasks, INITIAL_TASKS } = require('../ethereum/task-allocation-models/round-robin/mock-data')
 const { ASSIGNED_NUM } = require('../ethereum/task-allocation-models/round-robin/task-statuses')
 
 
-exports.reallocateTasks = async (existingSigner) => {
-    let signer = undefined
-    if (!existingSinger) {
-        console.log('Opening connection to Ethereum...')
-        signer = getSigner()
-    } else {
-        signer = existingSigner
-    }
+exports.reallocateTasks = async () => {
+    console.log('Opening adhoc connection to Ethereum...')
+    signer = getAdHocSigner()
     
     console.log('Getting contract "handler"')
     const rrContract = getRRContract(signer)
@@ -35,13 +31,10 @@ exports.reallocateTasks = async (existingSigner) => {
     for (let i = 0; i < allocatedTasks.length; i++) {
         const tId = taskIds[i]
         console.log(`Reallocating task: ${tId}`)
-        await  sendTransaction(rrContract, 'reallocateTask', [tId])
+        await sendTransaction(rrContract, 'reallocateTask', [tId])
     }
 
     console.log('Tasks have been reallocated')
 
-    if (!existingSinger) {
-        console.log('Closing connection...')
-        signer.provider._websocket.destroy()
-    }
+    return true
 }
