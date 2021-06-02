@@ -208,4 +208,4 @@ function userRegisteredHandler(userId) {
     console.log('Events listeners set up')
   }
 
-  module.exports = { createJobsForAllocatedTasks, setUpEventListeners }
+  module.exports = { createJobsForAllocatedTasks, setUpEventListeners, sendTransaction }
