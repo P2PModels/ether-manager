@@ -191,6 +191,7 @@ function userRegisteredHandler(userId) {
         console.log('Creating job for existing task ' + hexToAscii(tId) + ' for ' + endDate)
         cronJob = createReallocationCronJob(rrContract, tId, timestamp.toNumber())
         cronJobs.set(tId, cronJob)
+        cronJob.start()
       }
     }
   }
