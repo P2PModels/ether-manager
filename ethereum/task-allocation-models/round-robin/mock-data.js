@@ -8,8 +8,8 @@ exports.users = [
   'p2pmodels.user5',
   'p2pmodels.user6',
 ]
-// 5, 10, 15 and 30 min
-exports.reallocationTimes = [300, 600, 900, 1800]
+// 5, 8, 13 and 23 min
+exports.reallocationTimes = [300, 480, 780, 1380]
 exports.tasks = [
   {
     job_id: 'JS4TMAF',
