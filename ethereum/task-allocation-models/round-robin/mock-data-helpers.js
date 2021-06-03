@@ -1,16 +1,12 @@
 const { formatBytes32String } = require('ethers/lib/utils')
-const { timestampToHour, hexToAscii } = require('../../web3-utils')
-const { DEFAULT_GAS } = require('../../../config')
-const { getSigner } = require('../../ethers')
 const { users, tasks, reallocationTimes, INITIAL_TASKS } = require('./mock-data')
-const { getRRContract } = require('./round-robin')
 
-const signer = getSigner()
-const contract = getRRContract(signer)
+
 // The gas limit (in wei) was inspired by the hive.one project. It is 
 // sufficiently high to avoid delays and the same time sufficiently 
 // low to avoid expensive transactions
 const options = { gasLimit: 850000, /* gasPrice: 20000000000 */ }
+
 
 async function getInitialTasksIds(tasks, maxTasks = 1) {
   const tasksIds = tasks.map(({ job_id: taskId }) => taskId)
@@ -20,7 +16,7 @@ async function getInitialTasksIds(tasks, maxTasks = 1) {
 /**
  * Register users in the contract
 */
-async function registerMockUserAccounts(userAccounts) {
+async function registerMockUserAccounts(userAccounts, contract) {
   const createdAccounts = []
   for (let i = 0; i < userAccounts.length; i++) {
     try {
@@ -40,7 +36,7 @@ async function registerMockUserAccounts(userAccounts) {
   return createdAccounts
 }
 
-async function createMockTasks(tasks) {
+async function createMockTasks(tasks, contract) {
   const createdTasks = []
   for (let i = 0; i < tasks.length; i++) {
     try {
@@ -62,7 +58,7 @@ async function createMockTasks(tasks) {
 /**
  * Allocate mock tasks
  */
-async function allocateMockTasks(tasks, userAccounts) {
+async function allocateMockTasks(tasks, userAccounts, contract) {
   const userTaskRegistry = userAccounts.reduce((reg, currUser) => {
     reg[currUser] = 0
     return reg
@@ -109,7 +105,7 @@ async function getTasks(tasksIds) {
   console.log(tasks)
 }
 
-exports.restartContract = async () => {
+exports.restartContract = async (contract) => {
   console.log('Restarting contract...')
 
   const txResponse = await contract.restart()
@@ -118,15 +114,15 @@ exports.restartContract = async () => {
   console.log(`Contract restarted on tx ${txReceipt.transactionHash}`)
 }
 
-exports.generateMockData = async () => {
+exports.generateMockData = async (contract) => {
   const tasksIds = await getInitialTasksIds(tasks, INITIAL_TASKS)
 
   // Register amara users
-  const createdAccounts = await registerMockUserAccounts(users)
+  const createdAccounts = await registerMockUserAccounts(users, contract)
   
   // Create tasks
-  const createdTaskIds = await createMockTasks(tasksIds)
+  const createdTaskIds = await createMockTasks(tasksIds, contract)
   
   // Allocate tasks
-  await allocateMockTasks(tasksIds, users)
+  await allocateMockTasks(tasksIds, users, contract)
 }
