@@ -5,7 +5,7 @@ const WAITING_TIME = 5000
 const MAXIMUM_RETRIES = 5
 
 
-function startManager() {
+async function startManager() {
   const cronJobs = new Map()
   let retries = 0
 
@@ -35,9 +35,9 @@ function startManager() {
 
   setUpEventListeners(cronJobs, rrContract)
 
-  createJobsForAllocatedTasks(cronJobs, rrContract)
+  await createJobsForAllocatedTasks(cronJobs, rrContract)
 
-  return signer
+  return {mgrSigner: signer, mgrCronJobs: cronJobs}
 }
 
 module.exports = { startManager }
