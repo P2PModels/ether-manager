@@ -1,33 +1,31 @@
-const {startManager: start} = require("./manager/start-manager")
+const { startManager: start } = require("./manager/start-manager")
 const {restartContract: restart } = require('./manager/restart-contract')
-const processTasksInfo = require('./manager/get-tasks-info')
-const {reallocateTasks: reallocate} = require('./manager/reallocate-tasks')
+const { processTasksInfo } = require('./manager/get-tasks-info')
+const { reallocateTasks: reallocate } = require('./manager/reallocate-tasks')
+const { stopManager: stop } = require("./manager/stop-manager")
 
 
-exports.startManager = () => {
-    console.log('Starting manager...')
-    const signer = start()
-    return signer
+exports.startManager = async () => { 
+    console.log('Stating manager...')
+    return await start()
 }
 
-exports.stopManager = (signer) => {
+exports.stopManager = (signer, cronJobs) => {
     console.log('Stopping manager...')
-    console.log(signer)
-    signer.provider.destroy()
+    stop(signer, cronJobs)
 }
 
-exports.restartContract = (signer=undefined) => {
+exports.restartContract = () => {
     console.log('Restarting contract...')
-    restart(signer)
+    return restart()
 }
 
-exports.getContractStatus = (signer=undefined) => {
+exports.getContractStatus = () => {
     console.log('Getting contract status...')
-    const tasks = processTasksInfo(signer)
-    return tasks
+    return processTasksInfo()
 }
 
-exports.reallocateTasks = (signer=undefined) => {
+exports.reallocateTasks = () => {
     console.log('Reallocating tasks...')
-    reallocate(signer)
+    return reallocate()
 }
