@@ -9,6 +9,8 @@ const {
 const roundRobinAppAbi = require('../../../abis/RoundRobinApp.json')
 const logger = require('../../../winston')
 
+exports.usedEndDates = []
+
 exports.getRRContract = signer => {
   const network = argv.network || 'local'
   let contractAddress
@@ -27,7 +29,7 @@ exports.sendTransaction = async (rrContract, method, args = []) => {
   const txResponse = await rrContract[method](...args)
   const txReceipt = await txResponse.wait()
 
-  logger.info(` ${method} called on tx ${txReceipt.transactionHash} `)
+  logger.info(`${method} called on tx ${txReceipt.transactionHash} `)
 
   return txReceipt
 }

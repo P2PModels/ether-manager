@@ -2,7 +2,7 @@ const { CronJob, CronTime } = require('cron')
 const { timestampToDate, timestampToHour, hexToAscii } = require('../../web3-utils')
 const logger = require('../../../winston')
 const { tasks: mockTasks, INITIAL_TASKS } = require('./mock-data')
-const { sendTransaction } = require('./round-robin')
+const { sendTransaction, usedEndDates } = require('./round-robin')
 const { ASSIGNED_NUM } = require('./task-statuses')
 const { ethers } = require('ethers')
 
@@ -44,10 +44,9 @@ function taskCreatedHandler(taskId) {
 
 async function taskAllocatedHandler(cronJobs, rrContract, { userId, taskId }) {
   if (taskId && userId) {
-    // endDate indicates when the task should be
-    // reallocated
+    // endDate indicates when the task should be reallocated
     const { endDate } = await rrContract.getTask(taskId)
-    const endDateNumber = endDate.toNumber()
+    var endDateNumber = endDate.toNumber()
 
     logger.info(
       `${TASK_ALLOCATED} event - Task ${hexToAscii(taskId)} has been assigned to ${hexToAscii(userId)} and will be reassigned on ${timestampToHour(endDateNumber)}`
@@ -59,13 +58,24 @@ async function taskAllocatedHandler(cronJobs, rrContract, { userId, taskId }) {
       // If there is already a cron job for the taskId,
       // the cronjob is obtained and set a new time considering
       // its endDate
+
       cronJob = cronJobs.get(taskId)
+
+      while (usedEndDates.some(endDates => endDates == endDateNumber)) {
+        endDateNumber = endDateNumber + 60
+        logger.info(
+          `A cronjob already exist with the assigned hour. Reassigning again to ${timestampToHour(endDateNumber)}`)
+      }
+
       cronJob.setTime(new CronTime(timestampToDate(endDateNumber)))
+      usedEndDates.push(endDateNumber)
+
     } else {
       // If the task is being assigned for the first time, a cron job 
       // is created and saved into cronJobs
       cronJob = createReallocationCronJob(rrContract, taskId, endDateNumber)
       cronJobs.set(taskId, cronJob)
+      usedEndDates.push(endDateNumber)
     }
     cronJob.start()
   }
@@ -133,7 +143,7 @@ function createReallocationCronJob(rrContract, taskId, timestamp) {
   // reallocateTask is called when executionDate arrives
   return new CronJob(executionDate, function () {
     sendTransaction(rrContract, 'reallocateTask', [taskId]).then(
-      () => logger.info(`Job ${hexToAscii(taskId)} executed on ${executionDate}`)
+      () => logger.info(`Job ${hexToAscii(taskId)} executed on ${Date().toString()}`)
     )
   })
 }
@@ -145,7 +155,10 @@ function createReallocationCronJob(rrContract, taskId, timestamp) {
  * already allocated tasks exist in the contract but their cronjobs 
  * are lost. So, new cronjobs need to be created for these tasks.
  */
+
+
 exports.createJobsForAllocatedTasks = async (cronJobs, rrContract) => {
+
   // Get task ids
   const tasksIds = mockTasks
     .map(({ job_id: taskId }) => taskId)
@@ -164,7 +177,7 @@ exports.createJobsForAllocatedTasks = async (cronJobs, rrContract) => {
 
   let cronJob
 
-  logger.info(`Preparing existing  and assigned tasks`)
+  logger.info(`Preparing existing and assigned tasks`)
 
   for (let i = 0; i < allocatedTasks.length; i++) {
     // endDate is the time when the task should have been
@@ -173,15 +186,19 @@ exports.createJobsForAllocatedTasks = async (cronJobs, rrContract) => {
     const now = new Date()
     const endDate = timestampToDate(timestamp.toNumber()) 
     const tId = tasksIds[i]
+    
     // If the task's end date has already passed, task should be reallocated
     if (endDate <= now) {
+      logger.info('End date for task ' + hexToAscii(tId) + ' has already passed, the task is going to be reallocated')
       await  sendTransaction(rrContract, 'reallocateTask', [tId])
     } else {
       // If the task's end date hasn't already passed, the task is still valid
       // so the cronjob is created
-      logger.info('Creating job for existing task ' + hexToAscii(tId) + ' for ' + endDate)
+      logger.info('Creating cronjob for existing task ' + hexToAscii(tId) + ' for ' + endDate)
+
       cronJob = createReallocationCronJob(rrContract, tId, timestamp.toNumber())
       cronJobs.set(tId, cronJob)
+      usedEndDates.push(timestamp.toNumber)
     }
   }
 }

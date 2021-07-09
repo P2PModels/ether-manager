@@ -1,5 +1,6 @@
 const { formatBytes32String } = require('ethers/lib/utils')
 const { users, tasks, reallocationTimes, INITIAL_TASKS } = require('./mock-data')
+const logger = require('../../../winston')
 
 
 // The gas limit (in wei) was inspired by the hive.one project. It is 
@@ -42,6 +43,9 @@ async function createMockTasks(tasks, contract) {
     try {
       const hexId = formatBytes32String(tasks[i])
       const reallocationTime = reallocationTimes[i]
+
+      logger.info(`ReallocationTime: ${reallocationTime}`)
+
       const txResponse = await contract.createTask(hexId, reallocationTime, options)
       const txReceipt = await txResponse.wait()
       createdTasks.push(tasks[i])
@@ -115,6 +119,9 @@ exports.restartContract = async (contract) => {
 }
 
 exports.generateMockData = async (contract) => {
+
+  logger.info(`Generating mock data`)
+
   const tasksIds = await getInitialTasksIds(tasks, INITIAL_TASKS)
 
   // Register amara users
